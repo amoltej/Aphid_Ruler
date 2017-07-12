@@ -1,0 +1,147 @@
+//* NOTE:
+//* The author of this software is Amol Bharat Ghodke. Copyright (c) 2017 Permission to use, copy, modify, and distribute this software for any purpose without fee is hereby granted, provided that this entire notice is included in all copies of any software which is or includes a copy or modification of this software and in all copies of the supporting documentation for such software. Any for profit use of this software is expressly forbidden without first obtaining the explicit consent of the author. THIS SOFTWARE IS BEING PROVIDED "AS IS", WITHOUT ANY EXPRESS OR IMPLIED WARRANTY. IN PARTICULAR, THE AUTHOR DOES NOT MAKE ANY REPRESENTATION OR WARRANTY OF ANY KIND CONCERNING THE MERCHANTABILITY OF THIS SOFTWARE OR ITS FITNESS FOR ANY PARTICULAR PURPOSE.
+
+//This plugin is prepared for the size detection of aphids using ImageJ software. 
+//Please see "How to Use" document for using this script for size analysis.
+
+//Amol Bharat Ghodke
+ //amoltej@gmail.com
+
+
+//set veriables 
+var day = "01";
+var month = "Jan";
+var year = "2017";
+var Date = "01-Jan-2017";
+var rep = "Z";
+var filenum = 1;
+//change this if you have more than 30 pictures to analyse including marker picture
+var filelist = newArray("01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30");
+//change this to your destination folder where input images are located
+var path = "C:\\Users\\Amol\\Desktop\\Dropbox";
+var Length2pts = 1;
+var x_start = 1;
+var x_end = 1;
+var y_start = 1;
+var y_end = 1;
+var A = 1;
+var horizontal = 1;
+var vertical = 1;
+var ParticalSize = 2345;
+var No = 1
+
+macro "DailySettings Action Tool - C11cF11cc" {
+    day = getString("Picture day: ", day);
+    month = getString("Picture month: ", month);
+    year = getString("Picture year: ", year);
+    Date = day + "-" + month + "-" + year;
+    path = getString("Please indicate absolute path to folder, separated by \\: ", path);
+    print("No \t Filename \t Date \t Replicate \t Treatment \t Size of particle");
+        file=path+"\\DSC_0001.JPG";
+        open(file);
+        run("Subtract Background...", "rolling=100 create disable");
+        run("Make Binary");
+        setTool("point");
+//get the length of 1cm marker from first picture as a standard and convert it to points(number of pixels)
+			leftButton=16;
+			z2=-1; flags1=-1;;z3=-1;flags4=-1;
+			Clicked1 = false;
+				if (getVersion>="1.37r") setOption("DisablePopupMenu", true);
+				while (!Clicked1) {
+					getCursorLoc(x, y, z, flags);
+					if (flags&leftButton!=0) {
+						Clicked1 = true;
+						x_start=x; y_start=y; z2=z; flags1=flags;
+						}
+				}	
+				if (getVersion>="1.37r") setOption("DisablePopupMenu", false);
+				x_start= getNumber("X coord first grid: ", x_start);
+				y_start= getNumber("Y coord first grid: ", y_start);
+			leftButton=16;
+			z2=-1; flags1=-1;;z3=-1;flags4=-1;
+			Clicked2 = false;
+				if (getVersion>="1.37r") setOption("DisablePopupMenu", true);
+				while (!Clicked2) {
+					getCursorLoc(x, y, z, flags);
+					if (flags&leftButton!=0) {
+						Clicked2 = true;
+						x_end=x; y_end=y; z2=z; flags1=flags;
+						}
+				}
+				if (getVersion>="1.37r") setOption("DisablePopupMenu", false);
+				x_end= getNumber("X coord first grid: ", x_end);
+				y_end= getNumber("Y coord first grid: ", y_end);
+		y=(y_end-y_start)*(y_end-y_start);
+		x=(x_end-x_start)*(x_end-x_start);
+		A=(x+y);
+		Length2pts=sqrt(A);
+		Length2pts= getNumber("Length:",Length2pts);
+		print(Length2pts);
+		close();
+//start analyzing sample files.
+	filenum=getNumber("Number of pictures (max. 30): ", filenum);
+	rep = getString("Replicate: ", rep);
+	Date=day+"-"+month+"-"+year;
+	path= getString("Please indicate absolute path to folder, separated by \\: ", path);
+	for (i=1; i<filenum; ++i) {
+		file=path+"\\DSC_00"+filelist[i]+".JPG";
+		open(file);
+		wid=getWidth();
+		hig=getHeight();
+		horizontal=wid*(700/Length2pts);
+		vertical=hig*(700/Length2pts);
+		run("Size...", "width=horizontal height=vertical constrain average interpolation=Bilinear");
+		run("Set Scale...", "distance=Length2pts known=0 pixel=1 unit=cm");
+min=newArray(3);
+max=newArray(3);
+filter=newArray(3);
+a=getTitle();
+run("HSB Stack");
+run("Convert Stack to Images");
+selectWindow("Hue");
+rename("0");
+selectWindow("Saturation");
+rename("1");
+selectWindow("Brightness");
+rename("2");
+min[0]=0;
+max[0]=255;
+filter[0]="pass";
+min[1]=0;
+max[1]=255;
+filter[1]="pass";
+min[2]=0;
+//Remember to change following coordinate for calibration before running actual analysis
+max[2]=150;
+filter[2]="pass";
+for (j=0;j<3;j++){
+  selectWindow(""+j);
+  setThreshold(min[j], max[j]);
+  run("Convert to Mask");
+  if (filter[j]=="stop")  run("Invert");
+}
+imageCalculator("AND create", "0","1");
+imageCalculator("AND create", "Result of 0","2");
+for (j=0;j<3;j++){
+  selectWindow(""+j);
+  close();
+}
+selectWindow("Result of 0");
+close();
+selectWindow("Result of Result of 0");
+rename(a);
+run ("Invert");
+run("Analyze Particles...", "size=1000-10000 circularity=0.00-1.00 show=[Overlay Masks] display");
+}
+ParticalSize = newArray(300);
+for (n=0; n<100; n++){
+ParticalSize[n] = 1;
+}
+for (n=0; n<nResults; n++){
+ParticalSize[n] += getResult("Area",n);
+print(n+1 + "\t" + "DSC_00" + filelist[i] + "\t" + Date + "\t" + rep + "\t" + ParticalSize[n]);
+}
+// change the destination folder
+saveAs("Results", "C:\\Users\\Amol\\Desktop\\Dropbox\\filenum.csv");
+
+}
